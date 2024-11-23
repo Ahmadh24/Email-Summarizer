@@ -1,6 +1,6 @@
 # Email Summarizer Automation
 
-A Node.js automation script that summarizes unread emails from your Gmail account and sends a daily summary email.
+A Node.js automation script that summarizes unread emails from your Gmail account and sends a daily summary email. Below is an Example!
 ![emailsummary](https://github.com/user-attachments/assets/edb46538-56bd-4679-9729-18abc0d643f0)
 
 ## Features
