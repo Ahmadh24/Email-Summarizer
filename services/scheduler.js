@@ -1,9 +1,23 @@
 const schedule = require('node-schedule');
 const User = require('../models/user');
 const { generateSummaryForUser } = require('./emailSummary');
+const https = require('https');
 
 // Store all scheduled jobs
 const scheduledJobs = new Map();
+
+// Keep-alive mechanism
+function setupKeepAlive() {
+    if (process.env.NODE_ENV === 'production') {
+        setInterval(() => {
+            https.get('https://email-summarizer-t43q.onrender.com/ping', (resp) => {
+                console.log('Keep-alive ping sent at:', new Date().toISOString());
+            }).on('error', (err) => {
+                console.error('Keep-alive error:', err);
+            });
+        }, 14 * 60 * 1000); // 14 minutes
+    }
+}
 
 // Check if it's time to send summary
 function isTimeToSend(user) {
@@ -46,12 +60,16 @@ function scheduleForUser(user) {
 async function initializeSchedules() {
     try {
         const users = await User.find({});
+        console.log(`Initializing schedules for ${users.length} users`);
+        
         users.forEach(user => {
-            if (user.preferences?.deliveryTime) {
-                scheduleForUser(user);
-            }
+            scheduleForUser(user);
         });
-        console.log(`Initialized schedules for ${users.length} users`);
+
+        // Setup keep-alive for production
+        setupKeepAlive();
+        
+        console.log('Initialized schedules for', users.length, 'users');
     } catch (error) {
         console.error('Error initializing schedules:', error);
     }
@@ -67,5 +85,5 @@ function updateSchedule(user) {
 
 module.exports = {
     initializeSchedules,
-    updateSchedule
+    updateSchedule: scheduleForUser
 }; 

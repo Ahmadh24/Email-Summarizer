@@ -11,6 +11,12 @@ const User = require('./models/user');
 
 const app = express();
 
+// Add ping endpoint for keep-alive
+app.get('/ping', (req, res) => {
+    console.log('Ping received at:', new Date().toISOString());
+    res.send('pong');
+});
+
 // Trust proxy for secure cookies in production
 if (process.env.NODE_ENV === 'production') {
     app.set('trust proxy', 1);
