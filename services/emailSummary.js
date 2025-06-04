@@ -56,7 +56,7 @@ async function generateSummaryForUser(user) {
             summary += `From: ${from}\nSubject: ${subject}\nPreview: ${snippet}\n\n`;
         }
 
-        // Send summary email
+        // Send summary email using nodemailer
         const transporter = nodemailer.createTransport({
             service: 'gmail',
             auth: {
@@ -75,6 +75,7 @@ async function generateSummaryForUser(user) {
         console.log(`Summary sent successfully to ${user.summaryEmail}`);
     } catch (error) {
         console.error(`Error processing summary for user ${user.email}:`, error);
+        throw error; // Re-throw the error so it can be caught by the caller
     }
 }
 

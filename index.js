@@ -68,13 +68,13 @@ async function sendSummaryEmail(summary) {
     const transporter = nodemailer.createTransport({
         service: 'gmail',
         auth: {
-            user: process.env.EMAIL,
-            pass: process.env.PASSWORD,
+            user: process.env.EMAIL_SENDER,
+            pass: process.env.EMAIL_PASSWORD,
         },
     });
 
     const mailOptions = {
-        from: process.env.EMAIL,
+        from: process.env.EMAIL_SENDER,
         to: process.env.SUMMARY_EMAIL,
         subject: 'Daily Email Summary',
         text: summary,
