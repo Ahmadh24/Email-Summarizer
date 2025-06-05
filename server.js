@@ -51,8 +51,6 @@ const connectDB = async (retries = 5) => {
     try {
         await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/email-summarizer');
         console.log('Connected to MongoDB');
-        // Initialize schedules after successful connection
-        await initializeSchedules();
     } catch (error) {
         console.error('MongoDB connection error:', error);
         if (retries > 0) {
@@ -61,8 +59,6 @@ const connectDB = async (retries = 5) => {
         }
     }
 };
-
-connectDB();
 
 // Routes
 app.get('/', (req, res) => {
@@ -247,9 +243,7 @@ process.on('SIGUSR2', shutdownGracefully); // Nodemon restart signal
 // Start server after database connection
 async function startServer() {
     try {
-        await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/email-summarizer');
-        console.log('Connected to MongoDB');
-        
+        await connectDB();
         console.log(`Starting server on port ${PORT}`);
         
         server = app.listen(PORT, () => {
