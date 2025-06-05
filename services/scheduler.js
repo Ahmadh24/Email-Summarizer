@@ -6,6 +6,15 @@ const https = require('https');
 // Store all scheduled jobs
 const scheduledJobs = new Map();
 
+// Time zone offset for Eastern Time (ET)
+const TIME_ZONE = 'America/New_York';
+const TIME_OPTIONS = { timeZone: TIME_ZONE, hour12: true };
+
+// Convert UTC to ET
+function toLocalTime(date) {
+    return new Date(date.toLocaleString('en-US', { timeZone: TIME_ZONE }));
+}
+
 // Enhanced keep-alive mechanism
 function setupKeepAlive() {
     console.log(`Setting up keep-alive. NODE_ENV: ${process.env.NODE_ENV}`);
@@ -24,7 +33,7 @@ function sendKeepAlivePing() {
     console.log('Sending keep-alive ping...');
     const url = process.env.RENDER_EXTERNAL_URL || 'https://email-summarizer-t43q.onrender.com';
     https.get(`${url}/ping`, (resp) => {
-        console.log(`Keep-alive ping sent at: ${new Date().toISOString()}, Status: ${resp.statusCode}`);
+        console.log(`Keep-alive ping sent at: ${new Date().toLocaleString('en-US', TIME_OPTIONS)}, Status: ${resp.statusCode}`);
     }).on('error', (err) => {
         console.error('Keep-alive error:', err);
         // Retry on failure after 1 minute
@@ -35,9 +44,14 @@ function sendKeepAlivePing() {
 
 // Get next schedule time
 function getNextScheduleTime(hours, minutes) {
-    const now = new Date();
-    const scheduleTime = new Date();
+    // Get current time in ET
+    const now = toLocalTime(new Date());
+    console.log(`Current time (ET): ${now.toLocaleString('en-US', TIME_OPTIONS)}`);
+
+    // Create schedule time in ET
+    const scheduleTime = new Date(now);
     scheduleTime.setHours(hours, minutes, 0, 0);
+    console.log(`Target time (ET): ${scheduleTime.toLocaleString('en-US', TIME_OPTIONS)}`);
 
     // If the time hasn't passed for today, use today's date
     if (scheduleTime > now) {
@@ -55,7 +69,7 @@ function getNextScheduleTime(hours, minutes) {
 async function scheduleForUser(user, isReschedule = false) {
     console.log('\n=== Scheduling Summary for User ===');
     console.log(`User Email: ${user.email}`);
-    console.log(`Current Time: ${new Date().toLocaleString()}`);
+    console.log(`Current Time (ET): ${new Date().toLocaleString('en-US', TIME_OPTIONS)}`);
     console.log(`Is Reschedule: ${isReschedule}`);
 
     try {
@@ -76,12 +90,18 @@ async function scheduleForUser(user, isReschedule = false) {
 
         // Get the next schedule time
         const nextRun = getNextScheduleTime(hours, minutes);
-        console.log(`Next scheduled run: ${nextRun.toLocaleString()}`);
+        console.log(`Next scheduled run (ET): ${nextRun.toLocaleString('en-US', TIME_OPTIONS)}`);
+
+        // Create a rule for the schedule
+        const rule = new schedule.RecurrenceRule();
+        rule.tz = TIME_ZONE;
+        rule.hour = hours;
+        rule.minute = minutes;
 
         // Schedule the job
-        const job = schedule.scheduleJob(nextRun, async () => {
+        const job = schedule.scheduleJob(rule, async () => {
             console.log(`\n=== Executing Scheduled Job ===`);
-            console.log(`⏰ Triggered for ${user.email} at ${new Date().toLocaleString()}`);
+            console.log(`⏰ Triggered for ${user.email} at ${new Date().toLocaleString('en-US', TIME_OPTIONS)}`);
             
             try {
                 // Fetch fresh user data
@@ -94,12 +114,6 @@ async function scheduleForUser(user, isReschedule = false) {
                 console.log(`🚀 Generating summary for ${freshUser.email}`);
                 await generateSummaryForUser(freshUser);
                 console.log(`✅ Summary sent successfully to ${freshUser.summaryEmail}`);
-
-                // Schedule next day's summary
-                console.log('Scheduling next day\'s summary');
-                const nextDay = new Date(nextRun);
-                nextDay.setDate(nextDay.getDate() + 1);
-                await scheduleForUser(freshUser, true);
             } catch (error) {
                 console.error(`❌ Error in scheduled job for ${user.email}:`, error);
                 console.error('Full error details:', error.stack);
@@ -109,12 +123,12 @@ async function scheduleForUser(user, isReschedule = false) {
         if (job) {
             scheduledJobs.set(user._id.toString(), job);
             console.log(`✅ Schedule created successfully for ${user.email}`);
-            console.log(`📅 Next execution: ${job.nextInvocation().toLocaleString()}`);
+            console.log(`📅 Next execution (ET): ${job.nextInvocation().toLocaleString('en-US', TIME_OPTIONS)}`);
             
             // Store the next run time in the database
             user.nextScheduledRun = nextRun;
             await user.save();
-            console.log(`💾 Saved next run time to database: ${nextRun.toLocaleString()}`);
+            console.log(`💾 Saved next run time to database: ${nextRun.toLocaleString('en-US', TIME_OPTIONS)}`);
             
             // Verify the job is in the scheduledJobs map
             console.log(`🔍 Verifying job in scheduledJobs map: ${scheduledJobs.has(user._id.toString())}`);
@@ -165,7 +179,7 @@ async function checkMissedSchedules() {
 async function initializeSchedules() {
     console.log('\n=== Initializing All Schedules ===');
     console.log(`NODE_ENV: ${process.env.NODE_ENV}`);
-    console.log(`Current time: ${new Date().toLocaleString()}`);
+    console.log(`Current time (ET): ${new Date().toLocaleString('en-US', TIME_OPTIONS)}`);
     
     try {
         // First, check for any missed schedules
@@ -189,7 +203,7 @@ async function initializeSchedules() {
         console.log('\n=== Current Scheduled Jobs ===');
         scheduledJobs.forEach((job, userId) => {
             const nextRun = job.nextInvocation();
-            console.log(`📋 User ${userId}: Next run at ${nextRun.toLocaleString()}`);
+            console.log(`📋 User ${userId}: Next run (ET): ${nextRun.toLocaleString('en-US', TIME_OPTIONS)}`);
         });
         console.log(`Total scheduled jobs: ${scheduledJobs.size}`);
         console.log('=== End Current Jobs ===\n');
