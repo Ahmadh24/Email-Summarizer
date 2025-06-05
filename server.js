@@ -85,7 +85,11 @@ app.get('/auth/gmail', (req, res) => {
 
     const authUrl = oauth2Client.generateAuthUrl({
         access_type: 'offline',
-        scope: ['https://www.googleapis.com/auth/gmail.readonly']
+        prompt: 'consent',
+        scope: [
+            'https://www.googleapis.com/auth/gmail.readonly',
+            'https://www.googleapis.com/auth/gmail.modify'
+        ]
     });
 
     res.redirect(authUrl);

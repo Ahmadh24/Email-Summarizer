@@ -9,18 +9,29 @@ async function generateSummaryForUser(user) {
         process.env.GOOGLE_REDIRECT_URI
     );
 
+    if (!user.gmailToken) {
+        throw new Error('No Gmail token found for user');
+    }
+
     oauth2Client.setCredentials(user.gmailToken);
 
     // Check if token needs refresh
+    if (!user.gmailToken.refresh_token) {
+        console.error('No refresh token available for user:', user.email);
+        throw new Error('No refresh token available. Please re-authenticate.');
+    }
+
     if (user.gmailToken.expiry_date < Date.now()) {
         try {
+            console.log('Refreshing token for user:', user.email);
             const { tokens } = await oauth2Client.refreshToken(user.gmailToken.refresh_token);
             user.gmailToken = tokens;
             await user.save();
             oauth2Client.setCredentials(tokens);
+            console.log('Token refreshed successfully for user:', user.email);
         } catch (error) {
             console.error(`Token refresh failed for user ${user.email}:`, error);
-            return;
+            throw new Error('Failed to refresh token. Please re-authenticate.');
         }
     }
 
@@ -99,17 +110,29 @@ async function generatePreviewForUser(user) {
         process.env.GOOGLE_REDIRECT_URI
     );
 
+    if (!user.gmailToken) {
+        throw new Error('No Gmail token found for user');
+    }
+
     oauth2Client.setCredentials(user.gmailToken);
 
     // Check if token needs refresh
+    if (!user.gmailToken.refresh_token) {
+        console.error('No refresh token available for user:', user.email);
+        throw new Error('No refresh token available. Please re-authenticate.');
+    }
+
     if (user.gmailToken.expiry_date < Date.now()) {
         try {
+            console.log('Refreshing token for user:', user.email);
             const { tokens } = await oauth2Client.refreshToken(user.gmailToken.refresh_token);
             user.gmailToken = tokens;
             await user.save();
             oauth2Client.setCredentials(tokens);
+            console.log('Token refreshed successfully for user:', user.email);
         } catch (error) {
-            throw new Error('Failed to refresh token');
+            console.error(`Token refresh failed for user ${user.email}:`, error);
+            throw new Error('Failed to refresh token. Please re-authenticate.');
         }
     }
 
