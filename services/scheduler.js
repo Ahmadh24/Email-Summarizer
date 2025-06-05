@@ -19,20 +19,18 @@ function setupKeepAlive() {
     }
 }
 
-// Check if it's time to send summary
-function isTimeToSend(user) {
-    if (!user.preferences?.deliveryTime) {
-        console.log(`No delivery time set for user ${user.email}`);
-        return false;
+// Check if time is today or tomorrow
+function getScheduleDate(hours, minutes) {
+    const now = new Date();
+    const scheduleTime = new Date();
+    scheduleTime.setHours(hours, minutes, 0, 0);
+
+    // If the time has passed for today, schedule for tomorrow
+    if (scheduleTime <= now) {
+        scheduleTime.setDate(scheduleTime.getDate() + 1);
     }
 
-    const now = new Date();
-    const userTime = user.preferences.deliveryTime;
-    const isTime = now.getHours() === userTime.hours && now.getMinutes() === userTime.minutes;
-    
-    console.log(`Time check for ${user.email}: Current time: ${now.getHours()}:${now.getMinutes()}, User time: ${userTime.hours}:${userTime.minutes}, Should send: ${isTime}`);
-    
-    return isTime;
+    return scheduleTime;
 }
 
 // Schedule summary for a specific user
@@ -49,12 +47,13 @@ function scheduleForUser(user) {
     }
 
     const { hours, minutes } = user.preferences.deliveryTime;
-    const cronExpression = `${minutes} ${hours} * * *`;
-    console.log(`Setting up schedule for user ${user.email} with cron: ${cronExpression}`);
+    const scheduleTime = getScheduleDate(hours, minutes);
+    
+    console.log(`Setting up schedule for user ${user.email} at ${scheduleTime}`);
 
     // Schedule new job
-    const job = schedule.scheduleJob(cronExpression, async () => {
-        console.log(`⏰ Cron triggered for ${user.email} at ${new Date().toISOString()}`);
+    const job = schedule.scheduleJob(scheduleTime, async () => {
+        console.log(`⏰ Schedule triggered for ${user.email} at ${new Date().toISOString()}`);
         try {
             // Fetch fresh user data
             const freshUser = await User.findById(user._id);
@@ -63,13 +62,15 @@ function scheduleForUser(user) {
                 return;
             }
 
-            if (isTimeToSend(freshUser)) {
-                console.log(`🚀 Generating summary for ${freshUser.email}`);
-                await generateSummaryForUser(freshUser);
-                console.log(`✅ Summary sent successfully to ${freshUser.summaryEmail}`);
-            } else {
-                console.log(`⏳ Not time to send summary for ${freshUser.email}`);
-            }
+            console.log(`🚀 Generating summary for ${freshUser.email}`);
+            await generateSummaryForUser(freshUser);
+            console.log(`✅ Summary sent successfully to ${freshUser.summaryEmail}`);
+
+            // Schedule next day's summary
+            const nextScheduleTime = new Date(scheduleTime);
+            nextScheduleTime.setDate(nextScheduleTime.getDate() + 1);
+            scheduleForUser(freshUser); // Reschedule for next day
+            
         } catch (error) {
             console.error(`❌ Error in scheduled job for ${user.email}:`, error);
         }
@@ -78,10 +79,7 @@ function scheduleForUser(user) {
     if (job) {
         scheduledJobs.set(user._id.toString(), job);
         console.log(`✅ Schedule created successfully for ${user.email}`);
-        
-        // Log next invocation
-        const nextInvocation = job.nextInvocation();
-        console.log(`📅 Next summary for ${user.email} will be at: ${nextInvocation}`);
+        console.log(`📅 Next summary for ${user.email} will be at: ${scheduleTime}`);
     } else {
         console.error(`Failed to create schedule for ${user.email}`);
     }
