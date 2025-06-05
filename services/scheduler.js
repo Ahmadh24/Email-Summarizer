@@ -33,11 +33,29 @@ function sendKeepAlivePing() {
     });
 }
 
+// Get next schedule time
+function getNextScheduleTime(hours, minutes) {
+    const now = new Date();
+    const scheduleTime = new Date();
+    scheduleTime.setHours(hours, minutes, 0, 0);
+
+    // If the time hasn't passed for today, use today's date
+    if (scheduleTime > now) {
+        console.log('Scheduling for today');
+        return scheduleTime;
+    }
+
+    // If the time has passed, schedule for tomorrow
+    console.log('Time has passed for today, scheduling for tomorrow');
+    scheduleTime.setDate(scheduleTime.getDate() + 1);
+    return scheduleTime;
+}
+
 // Schedule summary for a specific user
 async function scheduleForUser(user, isReschedule = false) {
     console.log('\n=== Scheduling Summary for User ===');
     console.log(`User Email: ${user.email}`);
-    console.log(`Current Time: ${new Date().toISOString()}`);
+    console.log(`Current Time: ${new Date().toLocaleString()}`);
     console.log(`Is Reschedule: ${isReschedule}`);
 
     try {
@@ -56,14 +74,14 @@ async function scheduleForUser(user, isReschedule = false) {
         const { hours, minutes } = user.preferences.deliveryTime;
         console.log(`Requested delivery time: ${hours}:${minutes}`);
 
-        // Create a cron-style schedule
-        const cronSchedule = `${minutes} ${hours} * * *`;
-        console.log(`Setting up cron schedule: "${cronSchedule}" (${hours}:${minutes} daily)`);
+        // Get the next schedule time
+        const nextRun = getNextScheduleTime(hours, minutes);
+        console.log(`Next scheduled run: ${nextRun.toLocaleString()}`);
 
-        // Schedule new job with cron-style scheduling
-        const job = schedule.scheduleJob(cronSchedule, async () => {
+        // Schedule the job
+        const job = schedule.scheduleJob(nextRun, async () => {
             console.log(`\n=== Executing Scheduled Job ===`);
-            console.log(`⏰ Triggered for ${user.email} at ${new Date().toISOString()}`);
+            console.log(`⏰ Triggered for ${user.email} at ${new Date().toLocaleString()}`);
             
             try {
                 // Fetch fresh user data
@@ -76,6 +94,12 @@ async function scheduleForUser(user, isReschedule = false) {
                 console.log(`🚀 Generating summary for ${freshUser.email}`);
                 await generateSummaryForUser(freshUser);
                 console.log(`✅ Summary sent successfully to ${freshUser.summaryEmail}`);
+
+                // Schedule next day's summary
+                console.log('Scheduling next day\'s summary');
+                const nextDay = new Date(nextRun);
+                nextDay.setDate(nextDay.getDate() + 1);
+                await scheduleForUser(freshUser, true);
             } catch (error) {
                 console.error(`❌ Error in scheduled job for ${user.email}:`, error);
                 console.error('Full error details:', error.stack);
@@ -84,14 +108,13 @@ async function scheduleForUser(user, isReschedule = false) {
 
         if (job) {
             scheduledJobs.set(user._id.toString(), job);
-            const nextRun = job.nextInvocation();
             console.log(`✅ Schedule created successfully for ${user.email}`);
-            console.log(`📅 Next execution: ${nextRun}`);
+            console.log(`📅 Next execution: ${job.nextInvocation().toLocaleString()}`);
             
             // Store the next run time in the database
             user.nextScheduledRun = nextRun;
             await user.save();
-            console.log(`💾 Saved next run time to database: ${nextRun}`);
+            console.log(`💾 Saved next run time to database: ${nextRun.toLocaleString()}`);
             
             // Verify the job is in the scheduledJobs map
             console.log(`🔍 Verifying job in scheduledJobs map: ${scheduledJobs.has(user._id.toString())}`);
@@ -142,7 +165,7 @@ async function checkMissedSchedules() {
 async function initializeSchedules() {
     console.log('\n=== Initializing All Schedules ===');
     console.log(`NODE_ENV: ${process.env.NODE_ENV}`);
-    console.log(`Current time: ${new Date().toISOString()}`);
+    console.log(`Current time: ${new Date().toLocaleString()}`);
     
     try {
         // First, check for any missed schedules
@@ -166,7 +189,7 @@ async function initializeSchedules() {
         console.log('\n=== Current Scheduled Jobs ===');
         scheduledJobs.forEach((job, userId) => {
             const nextRun = job.nextInvocation();
-            console.log(`📋 User ${userId}: Next run at ${nextRun}`);
+            console.log(`📋 User ${userId}: Next run at ${nextRun.toLocaleString()}`);
         });
         console.log(`Total scheduled jobs: ${scheduledJobs.size}`);
         console.log('=== End Current Jobs ===\n');
