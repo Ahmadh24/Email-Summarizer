@@ -1,0 +1,12 @@
+{
+    "ignore": [
+        ".git",
+        "node_modules/**/node_modules",
+        "logs/*",
+        "*.log"
+    ],
+    "delay": "1000",
+    "events": {
+        "restart": "kill -9 $(lsof -t -i:3000) || true"
+    }
+} 

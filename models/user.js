@@ -5,6 +5,7 @@ const userSchema = new mongoose.Schema({
     summaryEmail: { type: String, required: true },
     gmailToken: Object,
     createdAt: { type: Date, default: Date.now },
+    nextScheduledRun: { type: Date },
     preferences: {
         deliveryTime: {
             type: Object,

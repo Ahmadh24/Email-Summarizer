@@ -11,6 +11,10 @@ const User = require('./models/user');
 
 const app = express();
 
+// Middleware
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
 // Add ping endpoint for keep-alive
 app.get('/ping', (req, res) => {
     console.log('Ping received at:', new Date().toISOString());
@@ -26,8 +30,6 @@ if (process.env.NODE_ENV === 'production') {
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
 app.use(express.static(path.join(__dirname, 'public')));
-app.use(express.urlencoded({ extended: true }));
-app.use(express.json());
 
 // Session configuration
 app.use(session({
@@ -219,6 +221,45 @@ app.post('/api/send-test-summary', async (req, res) => {
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
-}); 
+let server;
+
+// Graceful shutdown handler
+function shutdownGracefully() {
+    console.log('Received shutdown signal. Closing server...');
+    if (server) {
+        server.close(() => {
+            console.log('Server closed. Closing database connection...');
+            mongoose.connection.close(false, () => {
+                console.log('Database connection closed.');
+                process.exit(0);
+            });
+        });
+    } else {
+        process.exit(0);
+    }
+}
+
+// Handle various shutdown signals
+process.on('SIGTERM', shutdownGracefully);
+process.on('SIGINT', shutdownGracefully);
+process.on('SIGUSR2', shutdownGracefully); // Nodemon restart signal
+
+// Start server after database connection
+async function startServer() {
+    try {
+        await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/email-summarizer');
+        console.log('Connected to MongoDB');
+        
+        server = app.listen(PORT, () => {
+            console.log(`Server running on port ${PORT}`);
+        });
+        
+        // Initialize schedules after server starts
+        await initializeSchedules();
+    } catch (error) {
+        console.error('Failed to start server:', error);
+        process.exit(1);
+    }
+}
+
+startServer(); 
