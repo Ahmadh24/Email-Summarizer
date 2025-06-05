@@ -220,7 +220,7 @@ app.post('/api/send-test-summary', async (req, res) => {
     }
 });
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 10000;
 let server;
 
 // Graceful shutdown handler
@@ -249,6 +249,8 @@ async function startServer() {
     try {
         await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/email-summarizer');
         console.log('Connected to MongoDB');
+        
+        console.log(`Starting server on port ${PORT}`);
         
         server = app.listen(PORT, () => {
             console.log(`Server running on port ${PORT}`);

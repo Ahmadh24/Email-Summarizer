@@ -22,7 +22,8 @@ function setupKeepAlive() {
 
 function sendKeepAlivePing() {
     console.log('Sending keep-alive ping...');
-    https.get('https://email-summarizer-t43q.onrender.com/ping', (resp) => {
+    const url = process.env.RENDER_EXTERNAL_URL || 'https://email-summarizer-t43q.onrender.com';
+    https.get(`${url}/ping`, (resp) => {
         console.log(`Keep-alive ping sent at: ${new Date().toISOString()}, Status: ${resp.statusCode}`);
     }).on('error', (err) => {
         console.error('Keep-alive error:', err);
@@ -32,13 +33,33 @@ function sendKeepAlivePing() {
     });
 }
 
+// Convert local time to UTC
+function getUTCDate(hours, minutes) {
+    const now = new Date();
+    const localDate = new Date(
+        now.getFullYear(),
+        now.getMonth(),
+        now.getDate(),
+        hours,
+        minutes,
+        0
+    );
+    
+    // Convert to UTC
+    const utcDate = new Date(localDate.getTime() - localDate.getTimezoneOffset() * 60000);
+    return utcDate;
+}
+
 // Check if time is today or tomorrow
 function getScheduleDate(hours, minutes) {
-    const now = new Date();
-    console.log(`Current time: ${now.toISOString()}`);
+    console.log(`Scheduling for ${hours}:${minutes} (local time)`);
     
-    const scheduleTime = new Date();
-    scheduleTime.setHours(hours, minutes, 0, 0);
+    const now = new Date();
+    console.log(`Current time (UTC): ${now.toISOString()}`);
+    console.log(`Current time (Local): ${now.toString()}`);
+    
+    // Get UTC time for the schedule
+    let scheduleTime = getUTCDate(hours, minutes);
     
     // If the time has passed for today, schedule for tomorrow
     if (scheduleTime <= now) {
@@ -46,7 +67,8 @@ function getScheduleDate(hours, minutes) {
         console.log('Time has passed for today, scheduling for tomorrow');
     }
 
-    console.log(`Calculated schedule time: ${scheduleTime.toISOString()} (${scheduleTime.toLocaleString()})`);
+    console.log(`Calculated schedule time (UTC): ${scheduleTime.toISOString()}`);
+    console.log(`Calculated schedule time (Local): ${scheduleTime.toString()}`);
     return scheduleTime;
 }
 
@@ -71,7 +93,6 @@ async function handleScheduledJob(user) {
         await scheduleForUser(freshUser, true); // true indicates this is a reschedule
     } catch (error) {
         console.error(`❌ Error in scheduled job for ${user.email}:`, error);
-        // Log the full error stack
         console.error('Full error details:', error.stack);
         // Retry after 5 minutes if there's an error
         console.log(`Will retry in 5 minutes for ${user.email}`);
@@ -83,7 +104,8 @@ async function handleScheduledJob(user) {
 async function scheduleForUser(user, isReschedule = false) {
     console.log('\n=== Scheduling Summary for User ===');
     console.log(`User Email: ${user.email}`);
-    console.log(`Current Time: ${new Date().toISOString()}`);
+    console.log(`Current Time (UTC): ${new Date().toISOString()}`);
+    console.log(`Current Time (Local): ${new Date().toString()}`);
     console.log(`Is Reschedule: ${isReschedule}`);
 
     try {
@@ -103,7 +125,7 @@ async function scheduleForUser(user, isReschedule = false) {
         console.log(`Requested delivery time: ${hours}:${minutes}`);
         
         const scheduleTime = getScheduleDate(hours, minutes);
-        console.log(`🕒 Setting up schedule for ${scheduleTime.toLocaleString()}`);
+        console.log(`🕒 Setting up schedule for ${scheduleTime.toString()}`);
 
         // Store the next run time in the database
         user.nextScheduledRun = scheduleTime;
@@ -112,9 +134,9 @@ async function scheduleForUser(user, isReschedule = false) {
 
         // Create a rule for the schedule
         const rule = new schedule.RecurrenceRule();
-        rule.hour = hours;
-        rule.minute = minutes;
-        console.log(`Created recurrence rule for ${hours}:${minutes}`);
+        rule.hour = scheduleTime.getUTCHours();
+        rule.minute = scheduleTime.getUTCMinutes();
+        console.log(`Created recurrence rule for ${rule.hour}:${rule.minute} UTC`);
 
         // Schedule new job with the rule
         const job = schedule.scheduleJob(rule, () => handleScheduledJob(user));
