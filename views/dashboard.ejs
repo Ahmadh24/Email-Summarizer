@@ -131,7 +131,32 @@
                         <div id="previewSection" class="hidden mt-6 p-4 bg-gray-50 rounded-lg">
                             <h3 class="text-lg font-medium text-gray-900 mb-4">Summary Preview</h3>
                             <div id="previewContent" class="prose max-w-none">
-                                <!-- Preview content will be inserted here -->
+                                <div class="space-y-4">
+                                    <div class="bg-white p-4 rounded-lg shadow-sm">
+                                        <h4 class="font-medium text-gray-900 mb-2">📊 Stats</h4>
+                                        <ul class="list-none space-y-1 text-gray-600">
+                                            <li><strong>Total unread:</strong> <span id="totalEmails">-</span></li>
+                                            <li><strong>Looking back:</strong> <span id="lookbackDays">-</span> day(s)</li>
+                                            <li><strong>Categories:</strong> <span id="categories">-</span></li>
+                                            <li><strong>Delivery time:</strong> <span id="deliveryTime">-</span></li>
+                                            <li><strong>Will be sent to:</strong> <span id="summaryEmail">-</span></li>
+                                        </ul>
+                                    </div>
+                                    
+                                    <div class="bg-white p-4 rounded-lg shadow-sm">
+                                        <h4 class="font-medium text-gray-900 mb-2">🤖 AI Summary</h4>
+                                        <div id="aiSummary" class="text-gray-600 whitespace-pre-wrap">
+                                            Loading...
+                                        </div>
+                                    </div>
+
+                                    <div class="bg-white p-4 rounded-lg shadow-sm">
+                                        <h4 class="font-medium text-gray-900 mb-2">📧 Sample Emails</h4>
+                                        <div id="sampleEmails" class="space-y-3">
+                                            Loading...
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -187,34 +212,29 @@
                 console.log('Preview data:', preview);
                 
                 const previewSection = document.getElementById('previewSection');
-                const previewContent = document.getElementById('previewContent');
                 
-                let html = `
-                    <div class="space-y-4">
-                        <p><strong>Total unread emails:</strong> ${preview.totalEmails}</p>
-                        <p><strong>Looking back:</strong> ${preview.lookbackDays} day(s)</p>
-                        <p><strong>Categories:</strong> ${preview.categories.join(', ')}</p>
-                        <p><strong>Delivery time:</strong> ${String(preview.deliveryTime.hours).padStart(2, '0')}:${String(preview.deliveryTime.minutes).padStart(2, '0')}</p>
-                        <p><strong>Will be sent to:</strong> ${preview.summaryEmail}</p>
-                `;
+                // Update stats
+                document.getElementById('totalEmails').textContent = preview.totalEmails;
+                document.getElementById('lookbackDays').textContent = preview.lookbackDays;
+                document.getElementById('categories').textContent = preview.categories.join(', ');
+                document.getElementById('deliveryTime').textContent = 
+                    `${String(preview.deliveryTime.hours).padStart(2, '0')}:${String(preview.deliveryTime.minutes).padStart(2, '0')}`;
+                document.getElementById('summaryEmail').textContent = preview.summaryEmail;
 
-                if (preview.sampleEmails.length > 0) {
-                    html += '<div class="mt-4"><strong>Sample emails:</strong></div>';
-                    preview.sampleEmails.forEach(email => {
-                        html += `
-                            <div class="mt-2 p-3 bg-white rounded shadow-sm">
-                                <p><strong>From:</strong> ${email.from}</p>
-                                <p><strong>Subject:</strong> ${email.subject}</p>
-                                <p><strong>Preview:</strong> ${email.snippet}</p>
-                            </div>
-                        `;
-                    });
-                } else {
-                    html += '<p class="mt-4">No unread emails found in the selected categories.</p>';
-                }
+                // Update AI summary
+                document.getElementById('aiSummary').textContent = preview.sampleSummary || 'No AI summary available';
 
-                html += '</div>';
-                previewContent.innerHTML = html;
+                // Update sample emails
+                const sampleEmailsHtml = preview.sampleEmails.map(email => `
+                    <div class="border-b border-gray-200 pb-2">
+                        <p class="text-sm text-gray-500">${email.from}</p>
+                        <p class="font-medium">${email.subject}</p>
+                        <p class="text-gray-600 text-sm">${email.snippet}</p>
+                    </div>
+                `).join('') || 'No sample emails available';
+                
+                document.getElementById('sampleEmails').innerHTML = sampleEmailsHtml;
+                
                 previewSection.classList.remove('hidden');
             } catch (error) {
                 console.error('Error generating preview:', error);

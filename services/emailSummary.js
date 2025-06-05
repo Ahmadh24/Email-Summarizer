@@ -1,6 +1,7 @@
 const { google } = require('googleapis');
 const nodemailer = require('nodemailer');
 const User = require('../models/user');
+const { summarizeEmails } = require('./openai');
 
 async function generateSummaryForUser(user) {
     const oauth2Client = new google.auth.OAuth2(
@@ -52,20 +53,45 @@ async function generateSummaryForUser(user) {
         });
 
         const messages = response.data.messages || [];
-        let summary = `You have ${messages.length} unread emails from the last ${lookbackDays} day(s):\n\n`;
+        let emailDetails = [];
 
+        // Collect email details for AI summarization
         for (const message of messages) {
             const email = await gmail.users.messages.get({
                 userId: 'me',
                 id: message.id
             });
 
-            const subject = email.data.payload.headers.find(header => header.name === 'Subject')?.value || 'No Subject';
-            const from = email.data.payload.headers.find(header => header.name === 'From')?.value || 'Unknown Sender';
-            const snippet = email.data.snippet;
-
-            summary += `From: ${from}\nSubject: ${subject}\nPreview: ${snippet}\n\n`;
+            emailDetails.push({
+                from: email.data.payload.headers.find(header => header.name === 'From')?.value || 'Unknown Sender',
+                subject: email.data.payload.headers.find(header => header.name === 'Subject')?.value || 'No Subject',
+                snippet: email.data.snippet || 'No preview available'
+            });
         }
+
+        // Generate basic stats
+        const basicStats = `📊 Email Summary Stats:
+• Total unread emails: ${messages.length}
+• Time period: Last ${lookbackDays} day(s)
+• Categories: ${user.preferences.categories.join(', ')}
+`;
+
+        // Get AI-powered summary if there are emails
+        let aiSummary = '';
+        if (emailDetails.length > 0) {
+            try {
+                aiSummary = await summarizeEmails(emailDetails);
+            } catch (error) {
+                console.error('AI summarization failed, falling back to basic summary:', error);
+                // Fallback to basic summary if AI fails
+                aiSummary = emailDetails.map(email => 
+                    `From: ${email.from}\nSubject: ${email.subject}\nPreview: ${email.snippet}`
+                ).join('\n\n');
+            }
+        }
+
+        // Combine summaries
+        const finalSummary = `${basicStats}\n\n${aiSummary}`;
 
         // Send summary email using nodemailer
         const transporter = nodemailer.createTransport({
@@ -79,8 +105,8 @@ async function generateSummaryForUser(user) {
         await transporter.sendMail({
             from: process.env.EMAIL_SENDER,
             to: user.summaryEmail,
-            subject: `Your Daily Email Summary (${messages.length} unread)`,
-            text: summary
+            subject: `📬 Your AI Email Summary (${messages.length} unread)`,
+            text: finalSummary
         });
 
         console.log(`Summary sent successfully to ${user.summaryEmail}`);
@@ -139,7 +165,6 @@ async function generatePreviewForUser(user) {
     const gmail = google.gmail({ version: 'v1', auth: oauth2Client });
 
     try {
-        // Build query based on user preferences
         const categoryQueries = user.preferences.categories
             .map(cat => `category:${cat}`)
             .join(' OR ');
@@ -153,14 +178,7 @@ async function generatePreviewForUser(user) {
         });
 
         const messages = response.data.messages || [];
-        const preview = {
-            totalEmails: messages.length,
-            lookbackDays,
-            categories: user.preferences.categories,
-            deliveryTime: user.preferences.deliveryTime,
-            summaryEmail: user.summaryEmail,
-            sampleEmails: []
-        };
+        const emailDetails = [];
 
         // Get details for up to 3 emails as a sample
         const sampleSize = Math.min(messages.length, 3);
@@ -170,14 +188,33 @@ async function generatePreviewForUser(user) {
                 id: messages[i].id
             });
 
-            preview.sampleEmails.push({
+            emailDetails.push({
                 from: email.data.payload.headers.find(header => header.name === 'From')?.value || 'Unknown Sender',
                 subject: email.data.payload.headers.find(header => header.name === 'Subject')?.value || 'No Subject',
-                snippet: email.data.snippet
+                snippet: email.data.snippet || 'No preview available'
             });
         }
 
-        return preview;
+        // Generate AI summary for preview
+        let aiSummary = '';
+        if (emailDetails.length > 0) {
+            try {
+                aiSummary = await summarizeEmails(emailDetails);
+            } catch (error) {
+                console.error('AI summarization failed for preview:', error);
+                aiSummary = 'AI summarization preview not available. Please check your OpenAI API key.';
+            }
+        }
+
+        return {
+            totalEmails: messages.length,
+            lookbackDays,
+            categories: user.preferences.categories,
+            deliveryTime: user.preferences.deliveryTime,
+            summaryEmail: user.summaryEmail,
+            sampleSummary: aiSummary,
+            sampleEmails: emailDetails
+        };
     } catch (error) {
         throw new Error('Failed to generate preview');
     }

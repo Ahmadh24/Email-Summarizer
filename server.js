@@ -220,7 +220,7 @@ app.post('/api/send-test-summary', async (req, res) => {
     }
 });
 
-const PORT = process.env.PORT || 10000;
+const PORT = process.env.PORT || 3000;
 let server;
 
 // Graceful shutdown handler
