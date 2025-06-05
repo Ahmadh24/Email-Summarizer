@@ -33,79 +33,11 @@ function sendKeepAlivePing() {
     });
 }
 
-// Convert local time to UTC
-function getUTCDate(hours, minutes) {
-    const now = new Date();
-    const localDate = new Date(
-        now.getFullYear(),
-        now.getMonth(),
-        now.getDate(),
-        hours,
-        minutes,
-        0
-    );
-    
-    // Convert to UTC
-    const utcDate = new Date(localDate.getTime() - localDate.getTimezoneOffset() * 60000);
-    return utcDate;
-}
-
-// Check if time is today or tomorrow
-function getScheduleDate(hours, minutes) {
-    console.log(`Scheduling for ${hours}:${minutes} (local time)`);
-    
-    const now = new Date();
-    console.log(`Current time (UTC): ${now.toISOString()}`);
-    console.log(`Current time (Local): ${now.toString()}`);
-    
-    // Get UTC time for the schedule
-    let scheduleTime = getUTCDate(hours, minutes);
-    
-    // If the time has passed for today, schedule for tomorrow
-    if (scheduleTime <= now) {
-        scheduleTime.setDate(scheduleTime.getDate() + 1);
-        console.log('Time has passed for today, scheduling for tomorrow');
-    }
-
-    console.log(`Calculated schedule time (UTC): ${scheduleTime.toISOString()}`);
-    console.log(`Calculated schedule time (Local): ${scheduleTime.toString()}`);
-    return scheduleTime;
-}
-
-// Handle the summary generation and next schedule
-async function handleScheduledJob(user) {
-    console.log(`\n=== Executing Scheduled Job ===`);
-    console.log(`⏰ Triggered for ${user.email} at ${new Date().toISOString()}`);
-    try {
-        // Fetch fresh user data
-        const freshUser = await User.findById(user._id);
-        if (!freshUser) {
-            console.error(`❌ User ${user.email} not found in database`);
-            return;
-        }
-
-        console.log(`🚀 Generating summary for ${freshUser.email}`);
-        await generateSummaryForUser(freshUser);
-        console.log(`✅ Summary sent successfully to ${freshUser.summaryEmail}`);
-
-        // Schedule next day's summary
-        console.log(`📅 Scheduling next day's summary`);
-        await scheduleForUser(freshUser, true); // true indicates this is a reschedule
-    } catch (error) {
-        console.error(`❌ Error in scheduled job for ${user.email}:`, error);
-        console.error('Full error details:', error.stack);
-        // Retry after 5 minutes if there's an error
-        console.log(`Will retry in 5 minutes for ${user.email}`);
-        setTimeout(() => handleScheduledJob(user), 5 * 60 * 1000);
-    }
-}
-
 // Schedule summary for a specific user
 async function scheduleForUser(user, isReschedule = false) {
     console.log('\n=== Scheduling Summary for User ===');
     console.log(`User Email: ${user.email}`);
-    console.log(`Current Time (UTC): ${new Date().toISOString()}`);
-    console.log(`Current Time (Local): ${new Date().toString()}`);
+    console.log(`Current Time: ${new Date().toISOString()}`);
     console.log(`Is Reschedule: ${isReschedule}`);
 
     try {
@@ -123,28 +55,43 @@ async function scheduleForUser(user, isReschedule = false) {
 
         const { hours, minutes } = user.preferences.deliveryTime;
         console.log(`Requested delivery time: ${hours}:${minutes}`);
-        
-        const scheduleTime = getScheduleDate(hours, minutes);
-        console.log(`🕒 Setting up schedule for ${scheduleTime.toString()}`);
 
-        // Store the next run time in the database
-        user.nextScheduledRun = scheduleTime;
-        await user.save();
-        console.log(`💾 Saved next run time to database: ${scheduleTime}`);
+        // Create a cron-style schedule
+        const cronSchedule = `${minutes} ${hours} * * *`;
+        console.log(`Setting up cron schedule: "${cronSchedule}" (${hours}:${minutes} daily)`);
 
-        // Create a rule for the schedule
-        const rule = new schedule.RecurrenceRule();
-        rule.hour = scheduleTime.getUTCHours();
-        rule.minute = scheduleTime.getUTCMinutes();
-        console.log(`Created recurrence rule for ${rule.hour}:${rule.minute} UTC`);
+        // Schedule new job with cron-style scheduling
+        const job = schedule.scheduleJob(cronSchedule, async () => {
+            console.log(`\n=== Executing Scheduled Job ===`);
+            console.log(`⏰ Triggered for ${user.email} at ${new Date().toISOString()}`);
+            
+            try {
+                // Fetch fresh user data
+                const freshUser = await User.findById(user._id);
+                if (!freshUser) {
+                    console.error(`❌ User ${user.email} not found in database`);
+                    return;
+                }
 
-        // Schedule new job with the rule
-        const job = schedule.scheduleJob(rule, () => handleScheduledJob(user));
+                console.log(`🚀 Generating summary for ${freshUser.email}`);
+                await generateSummaryForUser(freshUser);
+                console.log(`✅ Summary sent successfully to ${freshUser.summaryEmail}`);
+            } catch (error) {
+                console.error(`❌ Error in scheduled job for ${user.email}:`, error);
+                console.error('Full error details:', error.stack);
+            }
+        });
 
         if (job) {
             scheduledJobs.set(user._id.toString(), job);
+            const nextRun = job.nextInvocation();
             console.log(`✅ Schedule created successfully for ${user.email}`);
-            console.log(`📅 Next execution: ${job.nextInvocation()}`);
+            console.log(`📅 Next execution: ${nextRun}`);
+            
+            // Store the next run time in the database
+            user.nextScheduledRun = nextRun;
+            await user.save();
+            console.log(`💾 Saved next run time to database: ${nextRun}`);
             
             // Verify the job is in the scheduledJobs map
             console.log(`🔍 Verifying job in scheduledJobs map: ${scheduledJobs.has(user._id.toString())}`);
@@ -232,18 +179,6 @@ async function initializeSchedules() {
         console.error('❌ Error initializing schedules:', error);
         console.error('Full error details:', error.stack);
     }
-}
-
-// Update schedule for a user
-async function updateSchedule(user) {
-    console.log('\n=== Updating Schedule ===');
-    if (user.preferences?.deliveryTime) {
-        await scheduleForUser(user);
-        console.log(`✅ Updated schedule for ${user.email}`);
-    } else {
-        console.log(`❌ No delivery time set for ${user.email}`);
-    }
-    console.log('=== End Update ===\n');
 }
 
 module.exports = {
