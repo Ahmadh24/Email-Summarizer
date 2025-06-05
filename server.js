@@ -141,10 +141,15 @@ app.post('/api/update-preferences', async (req, res) => {
 
     try {
         const user = await User.findById(req.session.userId);
+        if (!user) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+
         user.summaryEmail = req.body.summaryEmail;
         
         // Parse delivery time from request
         const [hours, minutes] = req.body.deliveryTime.split(':').map(Number);
+        console.log(`Updating delivery time for ${user.email} to ${hours}:${minutes}`);
         
         user.preferences = {
             deliveryTime: {
@@ -156,11 +161,15 @@ app.post('/api/update-preferences', async (req, res) => {
         };
         
         await user.save();
+        console.log(`Saved preferences for ${user.email}`);
         
         // Update the schedule for this user
         updateSchedule(user);
         
-        res.json({ success: true });
+        res.json({ 
+            success: true,
+            message: `Preferences updated. Next summary scheduled for ${hours}:${minutes}`
+        });
     } catch (error) {
         console.error('Error updating preferences:', error);
         res.status(500).json({ error: 'Failed to update preferences' });
