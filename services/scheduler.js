@@ -60,6 +60,8 @@ async function scheduleForUser(user, isReschedule = false) {
     console.log(`User Email: ${user.email}`);
     console.log(`Current Time (ET): ${new Date().toLocaleString('en-US', TIME_OPTIONS)}`);
     console.log(`Is Reschedule: ${isReschedule}`);
+    console.log(`Process ID: ${process.pid}`);
+    console.log(`Memory Usage: ${JSON.stringify(process.memoryUsage())}`);
 
     try {
         if (!user.preferences?.deliveryTime) {
@@ -67,12 +69,20 @@ async function scheduleForUser(user, isReschedule = false) {
             return;
         }
 
+        // Log existing jobs before cancellation
+        console.log('\n=== Existing Jobs Before Cancellation ===');
+        logCurrentJobs();
+
         // Cancel ALL existing jobs for this user
         const userId = user._id.toString();
         if (scheduledJobs.has(userId)) {
             console.log(`🔄 Cancelling existing schedule for user ${user.email}`);
+            console.log(`Previous schedule: ${scheduledJobs.get(userId).nextInvocation().toLocaleString('en-US', TIME_OPTIONS)}`);
             scheduledJobs.get(userId).cancel();
             scheduledJobs.delete(userId);
+            console.log('Previous schedule cancelled successfully');
+        } else {
+            console.log('No existing schedule found to cancel');
         }
 
         const { hours, minutes } = user.preferences.deliveryTime;
@@ -89,6 +99,7 @@ async function scheduleForUser(user, isReschedule = false) {
         const job = schedule.scheduleJob(rule, async () => {
             console.log(`\n=== Executing Scheduled Job ===`);
             console.log(`⏰ Triggered for ${user.email} at ${new Date().toLocaleString('en-US', TIME_OPTIONS)}`);
+            console.log(`Process ID: ${process.pid}`);
             
             try {
                 // Fetch fresh user data
@@ -121,7 +132,8 @@ async function scheduleForUser(user, isReschedule = false) {
             await user.save();
             console.log(`💾 Saved next run time to database: ${nextRun.toLocaleString('en-US', TIME_OPTIONS)}`);
             
-            // Log all current jobs for debugging
+            // Log final job status
+            console.log('\n=== Final Jobs Status After Update ===');
             logCurrentJobs();
         } else {
             console.error(`❌ Failed to create schedule for ${user.email}`);
