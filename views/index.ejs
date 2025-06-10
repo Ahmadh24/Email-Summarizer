@@ -3,14 +3,33 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Email Summarizer</title>
+    <title>EasyGmail - Smart Email Summaries</title>
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
 </head>
 <body class="bg-gray-100">
-    <div class="min-h-screen flex flex-col items-center justify-center">
+    <!-- Navigation -->
+    <nav class="bg-white shadow-lg">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16">
+                <div class="flex">
+                    <a href="/" class="flex items-center">
+                        <span class="text-2xl font-bold text-blue-600">EasyGmail</span>
+                    </a>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <a href="/privacy" class="text-gray-600 hover:text-gray-900">Privacy Policy</a>
+                    <a href="/terms" class="text-gray-600 hover:text-gray-900">Terms of Service</a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="min-h-screen flex flex-col items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
         <div class="max-w-md w-full bg-white rounded-lg shadow-lg p-8 space-y-6">
-            <h1 class="text-3xl font-bold text-center text-gray-800">Email Summarizer</h1>
-            <p class="text-center text-gray-600">Get daily summaries of your unread emails directly in your inbox!</p>
+            <div class="text-center">
+                <h1 class="text-3xl font-bold text-gray-900">Smart Email Summaries</h1>
+                <p class="mt-3 text-gray-600">Get AI-powered summaries of your unread emails delivered on your schedule.</p>
+            </div>
             
             <div class="space-y-4">
                 <% if (typeof error !== 'undefined' && error === 'auth_failed') { %>
@@ -20,24 +39,41 @@
                 <% } %>
                 
                 <a href="/auth/gmail" 
-                   class="w-full flex items-center justify-center px-4 py-2 border border-transparent rounded-md shadow-sm text-base font-medium text-white bg-blue-600 hover:bg-blue-700">
+                   class="w-full flex items-center justify-center px-4 py-2 border border-transparent rounded-md shadow-sm text-base font-medium text-white bg-blue-600 hover:bg-blue-700 transition-colors">
                     Sign in with Gmail
                 </a>
             </div>
 
-            <div class="mt-8 text-sm text-gray-500">
-                <h2 class="font-semibold mb-2">How it works:</h2>
-                <ul class="list-disc pl-5 space-y-1">
-                    <li>Sign in with your Gmail account</li>
-                    <li>Choose where to receive your summaries</li>
-                    <li>Get daily digests of unread emails</li>
-                    <li>Stay organized without constant email checking</li>
+            <div class="mt-8">
+                <h2 class="text-lg font-semibold text-gray-900 mb-4">Key Features:</h2>
+                <ul class="space-y-3">
+                    <li class="flex items-start">
+                        <span class="flex-shrink-0 h-6 w-6 text-blue-600">✨</span>
+                        <span class="ml-3">AI-powered email summarization</span>
+                    </li>
+                    <li class="flex items-start">
+                        <span class="flex-shrink-0 h-6 w-6 text-blue-600">🎯</span>
+                        <span class="ml-3">Customizable delivery schedule</span>
+                    </li>
+                    <li class="flex items-start">
+                        <span class="flex-shrink-0 h-6 w-6 text-blue-600">📊</span>
+                        <span class="ml-3">Smart priority detection</span>
+                    </li>
+                    <li class="flex items-start">
+                        <span class="flex-shrink-0 h-6 w-6 text-blue-600">🔒</span>
+                        <span class="ml-3">Secure and private</span>
+                    </li>
                 </ul>
             </div>
         </div>
 
         <footer class="mt-8 text-center text-gray-500 text-sm">
-            <p>Your data is secure. We only request read-only access to your emails.</p>
+            <p class="space-x-4">
+                <span>Your data is secure. We only request read-only access to your emails.</span>
+                <a href="/privacy" class="text-blue-600 hover:text-blue-800">Privacy Policy</a>
+                <span>•</span>
+                <a href="/terms" class="text-blue-600 hover:text-blue-800">Terms of Service</a>
+            </p>
         </footer>
     </div>
 </body>
